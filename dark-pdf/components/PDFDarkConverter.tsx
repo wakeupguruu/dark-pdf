@@ -12,7 +12,11 @@ interface ConversionProgress {
   status: "idle" | "processing" | "completed" | "error";
 }
 
-export default function PDFDarkConverter() {
+interface PDFDarkConverterProps {
+  onConverted?: () => void;
+}
+
+export default function PDFDarkConverter({ onConverted }: PDFDarkConverterProps) {
   const [file, setFile] = useState<File | null>(null)
   const [progress, setProgress] = useState<ConversionProgress>({
     currentPage: 0,
@@ -272,6 +276,7 @@ export default function PDFDarkConverter() {
       })
       downloadPDF(pdfBytes, file.name)
       setProgress((prev) => ({ ...prev, status: "completed" }))
+      if (onConverted) onConverted();
       setTimeout(() => {
         resetToIdle()
       }, 500)
@@ -280,7 +285,7 @@ export default function PDFDarkConverter() {
       setError("Failed to convert PDF. Please try again.")
       setProgress((prev) => ({ ...prev, status: "error" }))
     }
-  }, [file, downloadPDF, resetToIdle])
+  }, [file, downloadPDF, resetToIdle, onConverted])
 
   useEffect(() => {
     if (file && progress.status === "idle") {
