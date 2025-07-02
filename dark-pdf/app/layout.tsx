@@ -4,6 +4,9 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "PDF Dark Mode Converter",
   description: "Convert PDFs to dark mode in your browser",
+  icons: {
+    icon: "/favicon.ico",
+  },
 }
 
 export default function RootLayout({
@@ -13,6 +16,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body
         className="font-mono"
         style={{
