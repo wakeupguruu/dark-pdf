@@ -84,23 +84,6 @@ export default function PDFDarkConverter() {
     }
   }, [])
 
-  const isImageRegion = (imageData: ImageData, x: number, y: number, width: number, height: number) => {
-    const sampleSize = 20
-    let colorVariance = 0
-    let sampleCount = 0
-    for (let sy = y; sy < y + height && sy < imageData.height; sy += Math.floor(height / sampleSize)) {
-      for (let sx = x; sx < x + width && sx < imageData.width; sx += Math.floor(width / sampleSize)) {
-        const idx = (sy * imageData.width + sx) * 4
-        const r = imageData.data[idx]
-        const g = imageData.data[idx + 1]
-        const b = imageData.data[idx + 2]
-        const avg = (r + g + b) / 3
-        colorVariance += Math.abs(r - avg) + Math.abs(g - avg) + Math.abs(b - avg)
-        sampleCount++
-      }
-    }
-    return sampleCount > 0 && colorVariance / sampleCount > 30
-  }
 
   const convertPixelToDarkMode = (r: number, g: number, b: number, a: number, isPhoto = false) => {
     const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255
@@ -131,39 +114,6 @@ export default function PDFDarkConverter() {
     }
   }
 
-  const processCanvasForDarkMode = (canvas: HTMLCanvasElement) => {
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    const data = imageData.data
-    let totalVariance = 0
-    let sampleCount = 0
-    const sampleStep = 50
-    for (let i = 0; i < data.length; i += 4 * sampleStep) {
-      const r = data[i]
-      const g = data[i + 1]
-      const b = data[i + 2]
-      const avg = (r + g + b) / 3
-      totalVariance += Math.abs(r - avg) + Math.abs(g - avg) + Math.abs(b - avg)
-      sampleCount++
-    }
-    const isPhotoContent = sampleCount > 0 && totalVariance / sampleCount > 25
-    for (let i = 0; i < data.length; i += 4) {
-      const [newR, newG, newB, newA] = convertPixelToDarkMode(
-        data[i],
-        data[i + 1],
-        data[i + 2],
-        data[i + 3],
-        isPhotoContent,
-      )
-      data[i] = newR
-      data[i + 1] = newG
-      data[i + 2] = newB
-      data[i + 3] = newA
-    }
-    ctx.putImageData(imageData, 0, 0)
-  }
-
   const convertToDarkMode = useCallback(async () => {
     if (!file) return
     setProgress({
@@ -174,6 +124,40 @@ export default function PDFDarkConverter() {
       status: "processing",
     })
     setError(null)
+
+    const processCanvasForDarkMode = (canvas: HTMLCanvasElement) => {
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const data = imageData.data
+      let totalVariance = 0
+      let sampleCount = 0
+      const sampleStep = 50
+      for (let i = 0; i < data.length; i += 4 * sampleStep) {
+        const r = data[i]
+        const g = data[i + 1]
+        const b = data[i + 2]
+        const avg = (r + g + b) / 3
+        totalVariance += Math.abs(r - avg) + Math.abs(g - avg) + Math.abs(b - avg)
+        sampleCount++
+      }
+      const isPhotoContent = sampleCount > 0 && totalVariance / sampleCount > 25
+      for (let i = 0; i < data.length; i += 4) {
+        const [newR, newG, newB, newA] = convertPixelToDarkMode(
+          data[i],
+          data[i + 1],
+          data[i + 2],
+          data[i + 3],
+          isPhotoContent,
+        )
+        data[i] = newR
+        data[i + 1] = newG
+        data[i + 2] = newB
+        data[i + 3] = newA
+      }
+      ctx.putImageData(imageData, 0, 0)
+    }
+
     try {
       const script = document.createElement("script")
       script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
@@ -182,7 +166,8 @@ export default function PDFDarkConverter() {
         script.onload = resolve
         script.onerror = reject
       })
-      const pdfjsLib = (window as any).pdfjsLib
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pdfjsLib = (window as unknown as { pdfjsLib: any }).pdfjsLib
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
       const { PDFDocument, rgb } = await import("pdf-lib")
@@ -255,7 +240,6 @@ export default function PDFDarkConverter() {
           const textContent = await page.getTextContent()
           for (const item of textContent.items) {
             if ("str" in item && item.str.trim()) {
-              try {
                 const x = (item.transform[4] * pageWidth) / originalViewport.width
                 const y = pageHeight - (item.transform[5] * pageHeight) / originalViewport.height
                 const fontSize = Math.abs(item.transform[0]) * (pageWidth / originalViewport.width)
@@ -266,8 +250,6 @@ export default function PDFDarkConverter() {
                   color: rgb(0, 0, 0),
                   opacity: 0,
                 })
-              } catch (textError) {
-              }
             }
           }
         } catch (textError) {
