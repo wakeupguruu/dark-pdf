@@ -12,11 +12,8 @@ interface ConversionProgress {
   status: "idle" | "processing" | "completed" | "error";
 }
 
-interface PDFDarkConverterProps {
-  onConverted?: () => void;
-}
 
-export default function PDFDarkConverter({ onConverted }: PDFDarkConverterProps) {
+export default function PDFDarkConverter() {
   const [file, setFile] = useState<File | null>(null)
   const [progress, setProgress] = useState<ConversionProgress>({
     currentPage: 0,
@@ -28,6 +25,9 @@ export default function PDFDarkConverter({ onConverted }: PDFDarkConverterProps)
   const [isDragOver, setIsDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [splash, setSplash] = useState<{ x: number; y: number; key: number } | null>(null)
+  const splashTimeout = useRef<NodeJS.Timeout | null>(null)
+  const uploadAreaRef = useRef<HTMLDivElement>(null)
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -276,16 +276,12 @@ export default function PDFDarkConverter({ onConverted }: PDFDarkConverterProps)
       })
       downloadPDF(pdfBytes, file.name)
       setProgress((prev) => ({ ...prev, status: "completed" }))
-      if (onConverted) onConverted();
-      setTimeout(() => {
-        resetToIdle()
-      }, 500)
     } catch (err) {
       console.error("Error converting PDF:", err)
       setError("Failed to convert PDF. Please try again.")
       setProgress((prev) => ({ ...prev, status: "error" }))
     }
-  }, [file, downloadPDF, resetToIdle, onConverted])
+  }, [file, downloadPDF, resetToIdle])
 
   useEffect(() => {
     if (file && progress.status === "idle") {
@@ -300,19 +296,45 @@ export default function PDFDarkConverter({ onConverted }: PDFDarkConverterProps)
     return `${minutes}m ${remainingSeconds}s`
   }
 
+  const handleUploadAreaClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (fileInputRef.current) fileInputRef.current.click()
+    if (uploadAreaRef.current) {
+      const rect = uploadAreaRef.current.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      setSplash({ x, y, key: Date.now() })
+      if (splashTimeout.current) clearTimeout(splashTimeout.current)
+      splashTimeout.current = setTimeout(() => setSplash(null), 600)
+    }
+  }
+
   return (
     <>
       {/* Upload Area */}
       {progress.status === "idle" && (
         <div
-          className={`border-2 border-dashed rounded-none p-16 text-center cursor-pointer transition-colors ${
+          ref={uploadAreaRef}
+          className={`relative border-2 border-dashed rounded-none p-16 text-center cursor-pointer transition-colors ${
             isDragOver ? "border-white bg-gray-900" : "border-gray-600 hover:border-gray-400"
           }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={handleUploadAreaClick}
         >
+          {/* Splash Effect */}
+          {splash && (
+            <span
+              key={splash.key}
+              className="pointer-events-none absolute block rounded-full bg-white/20 animate-splash"
+              style={{
+                left: splash.x - 100,
+                top: splash.y - 100,
+                width: 200,
+                height: 200,
+              }}
+            />
+          )}
           <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileSelect} className="hidden" />
           <Upload className="w-16 h-16 mx-auto mb-6 text-gray-400" />
           <p className="text-xl mb-2 font-mono">DROP PDF HERE OR CLICK TO UPLOAD</p>

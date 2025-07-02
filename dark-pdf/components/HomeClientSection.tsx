@@ -1,30 +1,7 @@
-'use client'
-import { useEffect, useState } from "react";
-
-// Placeholder URLs - replace with your actual profiles
 const GITHUB_URL = "https://github.com/wakeupguruu/dark-pdf";
 const LINKEDIN_URL = "https://www.linkedin.com/in/guru-vyas-16a0b82a7/";
 
 export default function HomeClientSection() {
-  // Persistent conversion count using localStorage
-  const [conversionCount, setConversionCount] = useState(23);
-
-  useEffect(() => {
-    // Load from localStorage
-    const stored = localStorage.getItem("pdf_conversion_count");
-    if (stored) setConversionCount(Number(stored));
-
-    // Listen for custom event
-    const handler = () => {
-      setConversionCount((prev) => {
-        const next = prev + 1;
-        localStorage.setItem("pdf_conversion_count", String(next));
-        return next;
-      });
-    };
-    window.addEventListener("pdf-converted", handler);
-    return () => window.removeEventListener("pdf-converted", handler);
-  }, []);
 
   return (
     <>
@@ -32,12 +9,6 @@ export default function HomeClientSection() {
       <div className="text-center pt-4 pb-2">
         <span className="inline-block bg-gray-900 rounded px-3 py-1 font-mono text-xs border border-gray-700 text-gray-300">
           This website runs entirely in your browser. Your files never leave your device. 100% privacy-friendly.
-        </span>
-      </div>
-      {/* Conversion Counter */}
-      <div className="text-center mb-4">
-        <span className="inline-block bg-gray-900 rounded px-4 py-2 font-mono text-lg border border-gray-700 shadow">
-          PDFs converted on this site: <span className="font-bold text-green-400">{conversionCount}</span>
         </span>
       </div>
       {/* Footer with social icons */}
