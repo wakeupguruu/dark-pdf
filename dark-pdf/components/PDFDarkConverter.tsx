@@ -28,6 +28,7 @@ export default function PDFDarkConverter() {
   const [splash, setSplash] = useState<{ x: number; y: number; key: number } | null>(null)
   const splashTimeout = useRef<NodeJS.Timeout | null>(null)
   const uploadAreaRef = useRef<HTMLDivElement>(null)
+  const [downloadInfo, setDownloadInfo] = useState<{ pdfBytes: Uint8Array; fileName: string } | null>(null)
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -42,6 +43,7 @@ export default function PDFDarkConverter() {
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(false)
+    if (fileInputRef.current) fileInputRef.current.value = ""
     const droppedFile = e.dataTransfer.files[0]
     if (droppedFile && droppedFile.type === "application/pdf") {
       setFile(droppedFile)
@@ -53,6 +55,7 @@ export default function PDFDarkConverter() {
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
+    if (fileInputRef.current) fileInputRef.current.value = ""
     if (selectedFile && selectedFile.type === "application/pdf") {
       setFile(selectedFile)
       setError(null)
@@ -115,6 +118,12 @@ export default function PDFDarkConverter() {
     return [mapped, mapped, mapped, a];
   }
 
+  const handleManualDownload = useCallback(() => {
+    if (downloadInfo) {
+      downloadPDF(downloadInfo.pdfBytes, downloadInfo.fileName)
+    }
+  }, [downloadInfo, downloadPDF])
+
   const convertToDarkMode = useCallback(async () => {
     if (!file) return
     setProgress({
@@ -125,6 +134,7 @@ export default function PDFDarkConverter() {
       status: "processing",
     })
     setError(null)
+    setDownloadInfo(null)
 
     const processCanvasForDarkMode = (canvas: HTMLCanvasElement) => {
       const ctx = canvas.getContext("2d")
@@ -274,7 +284,7 @@ export default function PDFDarkConverter() {
       const pdfBytes = await newPdfDoc.save({
         useObjectStreams: false,
       })
-      downloadPDF(pdfBytes, file.name)
+      setDownloadInfo({ pdfBytes, fileName: file.name })
       setProgress((prev) => ({ ...prev, status: "completed" }))
     } catch (err) {
       console.error("Error converting PDF:", err)
@@ -310,6 +320,14 @@ export default function PDFDarkConverter() {
 
   return (
     <>
+      {/* Always present file input for upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
       {/* Upload Area */}
       {progress.status === "idle" && (
         <div
@@ -335,7 +353,6 @@ export default function PDFDarkConverter() {
               }}
             />
           )}
-          <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileSelect} className="hidden" />
           <Upload className="w-16 h-16 mx-auto mb-6 text-gray-400" />
           <p className="text-xl mb-2 font-mono">DROP PDF HERE OR CLICK TO UPLOAD</p>
           <p className="text-gray-500 font-mono text-sm">CONVERT YOUR PDF TO DARK MODE</p>
@@ -367,9 +384,28 @@ export default function PDFDarkConverter() {
       {/* Completed State */}
       {progress.status === "completed" && (
         <div className="text-center space-y-4">
-          <p className="text-xl font-mono text-green-400">DOWNLOAD STARTED!</p>
+          <p className="text-xl font-mono text-green-400">DOWNLOAD READY!</p>
+          
+          <button
+            className="block mx-auto mb-4 px-8 py-4 text-2xl font-mono font-bold rounded border-2 border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-black transition-colors"
+            onClick={handleManualDownload}
+          >
+            Click here to download
+          </button>
+          <p className="text-gray-500 font-mono text-sm">
+            Download the converted PDF before uploading another file.
+          </p>
           <p className="text-gray-400 font-mono">READY FOR NEXT PDF</p>
-          <p className="text-gray-500 font-mono text-sm">UPLOAD ANOTHER FILE TO CONTINUE</p>
+          <button
+            className="mx-auto flex items-center justify-center mt-2 border border-gray-600 rounded-full p-3 hover:border-white hover:text-white text-gray-400 transition-colors"
+            onClick={() => {
+              resetToIdle();
+              setTimeout(() => fileInputRef.current?.click(), 0);
+            }}
+            aria-label="Upload another file"
+          >
+            <Upload className="w-6 h-6" />
+          </button>
         </div>
       )}
       {/* Error State */}
