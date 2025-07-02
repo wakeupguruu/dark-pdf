@@ -84,34 +84,31 @@ export default function PDFDarkConverter() {
     }
   }, [])
 
-
   const convertPixelToDarkMode = (r: number, g: number, b: number, a: number, isPhoto = false) => {
-    const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255
-    if (a < 50) return [r, g, b, a]
+    if (a < 50) return [r, g, b, a]; // Transparent, leave as is
+    const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+    // Background: very bright
+    if (brightness > 0.92) {
+      return [0, 0, 0, a]; // Pure black
+    }
+    // Text: very dark
+    if (brightness < 0.18) {
+      return [255, 255, 255, a]; // Pure white
+    }
     if (isPhoto) {
-      const factor = brightness > 0.5 ? 0.7 : 1.2
-      return [
-        Math.max(0, Math.min(255, r * factor)),
-        Math.max(0, Math.min(255, g * factor)),
-        Math.max(0, Math.min(255, b * factor)),
-        a,
-      ]
+      // For photos/images: keep natural, but boost contrast for dark bg
+      // Apply a simple contrast/brightness adjustment
+      const contrast = 1.15; // Slightly boost contrast
+      const brightnessAdj = 10; // Slightly brighten
+      const newR = Math.min(255, Math.max(0, (r - 128) * contrast + 128 + brightnessAdj));
+      const newG = Math.min(255, Math.max(0, (g - 128) * contrast + 128 + brightnessAdj));
+      const newB = Math.min(255, Math.max(0, (b - 128) * contrast + 128 + brightnessAdj));
+      return [newR, newG, newB, a];
     }
-    if (brightness > 0.9) {
-      return [25, 25, 25, a]
-    } else if (brightness > 0.8) {
-      return [Math.max(20, r - 200), Math.max(20, g - 200), Math.max(20, b - 200), a]
-    } else if (brightness > 0.6) {
-      return [Math.max(10, r * 0.3), Math.max(10, g * 0.3), Math.max(10, b * 0.3), a]
-    } else if (brightness > 0.4) {
-      return [Math.max(0, r * 0.6), Math.max(0, g * 0.6), Math.max(0, b * 0.6), a]
-    } else if (brightness < 0.1) {
-      return [220, 220, 220, a]
-    } else if (brightness < 0.2) {
-      return [190, 190, 190, a]
-    } else {
-      return [Math.min(255, r + 120), Math.min(255, g + 120), Math.min(255, b + 120), a]
-    }
+    // For everything else (graphics, midtones):
+    // Map to a lighter color for readability, but not pure white
+    const mapped = 220 - Math.round((brightness - 0.18) / (0.92 - 0.18) * 120); // 220 to 100
+    return [mapped, mapped, mapped, a];
   }
 
   const convertToDarkMode = useCallback(async () => {
@@ -314,7 +311,7 @@ export default function PDFDarkConverter() {
           <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileSelect} className="hidden" />
           <Upload className="w-16 h-16 mx-auto mb-6 text-gray-400" />
           <p className="text-xl mb-2 font-mono">DROP PDF HERE OR CLICK TO UPLOAD</p>
-          <p className="text-gray-500 font-mono text-sm">OPTIMIZED FOR TEXT + IMAGES + REASONABLE FILE SIZE</p>
+          <p className="text-gray-500 font-mono text-sm">CONVERT YOUR PDF TO DARK MODE</p>
         </div>
       )}
       {/* Processing State */}
@@ -325,7 +322,7 @@ export default function PDFDarkConverter() {
             <p className="text-gray-400 font-mono">
               PROCESSING PAGE {progress.currentPage} OF {progress.totalPages}
             </p>
-            <p className="text-gray-500 font-mono text-sm">SMART PROCESSING FOR TEXT AND IMAGES...</p>
+            <p className="text-gray-500 font-mono text-sm">CONVERTED PDF WILL BE SAVED AS <span className="font-bold">{file?.name.replace(".pdf", "")}_dark.pdf</span></p>
           </div>
           <div className="space-y-4">
             <Progress value={progress.percentage} className="h-2 bg-gray-800" />
