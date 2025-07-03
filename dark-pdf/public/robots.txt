@@ -1,5 +1,4 @@
 User-agent: *
-Disallow:
 Allow: /
 
-Sitemap: https://wakeupguruu.github.io/sitemap.xml
+Sitemap: https://darkpdf.vercel.app/sitemap.xml
